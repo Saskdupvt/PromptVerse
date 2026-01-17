@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PromptVerse | Master AI Directory</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Supabase Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #f8fafc; }
+        
+        /* Glassmorphism Utilities */
+        .glass { 
+            background: rgba(30, 41, 59, 0.6); 
+            backdrop-filter: blur(12px); 
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08); 
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Hover Effects */
+        .prompt-card { 
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+        }
+        .prompt-card:hover { 
+            transform: translateY(-5px); 
+            border-color: rgba(59, 130, 246, 0.5);
+            box-shadow: 0 10px 40px -10px rgba(59, 130, 246, 0.3);
+        }
+
+        /* Utility Classes */
+        .hidden { display: none !important; }
+        .text-gradient {
+            background: linear-gradient(to right, #3b82f6, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        /* Toast Animation */
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .toast-enter { animation: slideIn 0.3s forwards; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Navbar -->
+    <nav class="glass sticky top-0 z-50 px-4 py-4 mb-8 border-b border-white/5">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold font-display text-gradient cursor-pointer" onclick="navigate('home')">
+                PromptVerse
+            </h1>
+            
+            <!-- Auth State: Logged Out -->
+            <div id="navLoggedOut" class="flex gap-3">
+                <button onclick="navigate('auth')" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-full text-sm font-semibold transition shadow-lg shadow-blue-500/20">Sign In</button>
+            </div>
+
+            <!-- Auth State: Logged In -->
+            <div id="navLoggedIn" class="hidden flex items-center gap-4">
+                <span id="userEmailDisplay" class="text-sm text-gray-400 hidden sm:block"></span>
+                <button onclick="navigate('profile')" class="p-2 bg-gray-700 hover:bg-gray-600 rounded-full transition border border-white/10">👤</button>
+                <button onclick="handleLogout()" class="text-red-400 text-sm hover:text-red-300 transition">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 pb-20 w-full flex-grow">
+        
+        <!-- HOME VIEW -->
+        <section id="view-home">
+            <div class="text-center mb-16 fade-in">
+                <h2 class="text-4xl md:text-6xl font-extrabold mb-4 text-white tracking-tight">The Best AI Prompts <br/> <span class="text-blue-500">In One Place</span></h2>
+                <p class="text-slate-400 max-w-2xl mx-auto text-lg">Explore high-quality prompts for Midjourney, ChatGPT, and Video AI tools.</p>
+            </div>
+            
+            <!-- Categories -->
+            <div class="flex flex-wrap justify-center gap-3 mb-12">
+                <button onclick="filterPrompts('All')" class="filter-btn active px-6 py-2 rounded-full text-sm font-medium transition-all border border-white/10" data-cat="All">All</button>
+                <button onclick="filterPrompts('ChatGPT')" class="filter-btn px-6 py-2 rounded-full text-sm font-medium transition-all border border-white/10 hover:bg-white/5" data-cat="ChatGPT">ChatGPT</button>
+                <button onclick="filterPrompts('Midjourney')" class="filter-btn px-6 py-2 rounded-full text-sm font-medium transition-all border border-white/10 hover:bg-white/5" data-cat="Midjourney">Midjourney</button>
+                <button onclick="filterPrompts('Video AI')" class="filter-btn px-6 py-2 rounded-full text-sm font-medium transition-all border border-white/10 hover:bg-white/5" data-cat="Video AI">Video AI</button>
+            </div>
+
+            <!-- Grid -->
+            <div id="promptGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Content injected via JS -->
+                <div class="col-span-full flex justify-center">
+                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- AUTH VIEW -->
+        <section id="view-auth" class="hidden flex justify-center items-center min-h-[60vh]">
+            <div class="glass p-8 rounded-2xl w-full max-w-md border border-white/10">
+                <h2 id="authTitle" class="text-3xl font-bold mb-2 text-center text-white">Welcome Back</h2>
+                <p id="authSubtitle" class="text-center text-gray-400 mb-8">Enter your credentials to access your account</p>
+                
+                <form id="authForm" class="space-y-5">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Email</label>
+                        <input type="email" id="authEmail" placeholder="you@example.com" class="w-full p-3 rounded-lg bg-slate-900 border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition text-white" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Password</label>
+                        <input type="password" id="authPassword" placeholder="••••••••" class="w-full p-3 rounded-lg bg-slate-900 border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition text-white" required>
+                    </div>
+                    <button type="submit" id="authBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow-lg shadow-blue-500/25 transition transform active:scale-95">Sign In</button>
+                </form>
+                <p class="mt-6 text-center text-sm text-gray-400">
+                    <span id="toggleText">Don't have an account?</span> 
+                    <button onclick="toggleAuthMode()" class="text-blue-400 hover:text-blue-300 font-bold ml-1">Switch Mode</button>
+                </p>
+            </div>
+        </section>
+
+        <!-- PROFILE VIEW -->
+        <section id="view-profile" class="hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- Upload Form -->
+                <div class="lg:col-span-1 glass p-6 rounded-2xl h-fit border border-white/5">
+                    <div class="flex items-center gap-2 mb-6 text-blue-400">
+                        <span class="text-2xl">✨</span>
+                        <h3 class="text-xl font-bold text-white">Share a Prompt</h3>
+                    </div>
+                    <form id="promptForm" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Title</label>
+                            <input type="text" id="pTitle" placeholder="e.g. Cyberpunk City" class="w-full p-3 rounded-lg bg-slate-900 border border-slate-700 outline-none focus:border-blue-500 transition text-white" required>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Category</label>
+                            <select id="pCategory" class="w-full p-3 rounded-lg bg-slate-900 border border-slate-700 outline-none focus:border-blue-500 transition text-white">
+                                <option value="ChatGPT">ChatGPT</option>
+                                <option value="Midjourney">Midjourney</option>
+                                <option value="Video AI">Video AI</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Prompt Text</label>
+                            <textarea id="pText" rows="5" placeholder="Paste your magic words here..." class="w-full p-3 rounded-lg bg-slate-900 border border-slate-700 outline-none focus:border-blue-500 transition text-white font-mono text-sm" required></textarea>
+                        </div>
+                        <button type="submit" class="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold py-3 rounded-lg hover:shadow-lg hover:shadow-blue-500/20 transition transform active:scale-95">Publish Prompt</button>
+                    </form>
+                </div>
+
+                <!-- User Dashboard -->
+                <div class="lg:col-span-2 glass p-6 rounded-2xl border border-white/5 min-h-[400px]">
+                    <h3 class="text-xl font-bold mb-6 text-white flex justify-between items-center">
+                        Your Contributions
+                        <span class="text-xs font-normal text-gray-400 bg-white/5 px-3 py-1 rounded-full" id="promptCount">0 prompts</span>
+                    </h3>
+                    <div id="userPrompts" class="space-y-4">
+                        <div class="text-center text-gray-500 py-10 flex flex-col items-center">
+                            <span class="text-4xl mb-3 opacity-50">📂</span>
+                            <p>You haven't uploaded any prompts yet.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-white/5 py-8 text-center text-gray-600 text-sm mt-auto">
+        <p>© 2024 PromptVerse. Built with Supabase & Tailwind.</p>
+    </footer>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2"></div>
+
+    <script>
+        // --- 1. CONFIGURATION ---
+        // REPLACE THESE WITH YOUR ACTUAL KEYS
+        const SUPABASE_URL = 'YOUR_SUPABASE_URL_HERE'; 
+        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY_HERE';
+        
+        let _supabase = null;
+        let currentUser = null;
+        let isLoginMode = true;
+        let isMockMode = false; // If Supabase fails, we use this
+
+        // Mock Data Fallback (So app works without DB)
+        const MOCK_PROMPTS = [
+            { id: 1, title: 'SaaS Landing Page Copy', category: 'ChatGPT', prompt_text: 'Write a high-converting hero section for a project management SaaS...', created_at: new Date().toISOString(), user_id: 'mock' },
+            { id: 2, title: 'Neon Cyberpunk City', category: 'Midjourney', prompt_text: 'Futuristic city skyline, neon lights, rain, cyberpunk aesthetic, 8k render...', created_at: new Date().toISOString(), user_id: 'mock' },
+            { id: 3, title: 'Cinematic Drone Shot', category: 'Video AI', prompt_text: 'Drone shot flying over snowy mountains at sunrise, cinematic lighting...', created_at: new Date().toISOString(), user_id: 'mock' },
+            { id: 4, title: 'Python Code Refactor', category: 'ChatGPT', prompt_text: 'Optimize this Python function for better time complexity...', created_at: new Date().toISOString(), user_id: 'mock' },
+        ];
+
+        // --- 2. INITIALIZATION ---
+        window.addEventListener('DOMContentLoaded', async () => {
+            // Try to init Supabase
+            try {
+                if (SUPABASE_URL === 'YOUR_SUPABASE_URL_HERE') {
+                    throw new Error("Keys not set");
+                }
+                _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                await checkSession();
+            } catch (e) {
+                console.warn("Supabase Init Failed or Missing Keys. Switching to Mock Mode.", e);
+                isMockMode = true;
+                showToast("Running in Demo Mode (No Database)", "info");
+            }
+
+            fetchPrompts('All');
+        });
+
+        // --- 3. VIEW CONTROLLER ---
+        function navigate(viewName) {
+            // Auth Check for Profile
+            if (viewName === 'profile' && !currentUser) {
+                showToast("Please login to access profile", "error");
+                navigate('auth');
+                return;
+            }
+
+            // Hide all views
+            ['view-home', 'view-auth', 'view-profile'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+            
+            // Show target
+            document.getElementById('view-' + viewName).classList.remove('hidden');
+            
+            if (viewName === 'profile' && currentUser) fetchUserPrompts();
+        }
+
+        function toggleAuthMode() {
+            isLoginMode = !isLoginMode;
+            const title = document.getElementById('authTitle');
+            const sub = document.getElementById('authSubtitle');
+            const btn = document.getElementById('authBtn');
+            const toggle = document.getElementById('toggleText');
+
+            if (isLoginMode) {
+                title.innerText = "Welcome Back";
+                sub.innerText = "Enter your credentials to access your account";
+                btn.innerText = "Sign In";
+                toggle.innerText = "Don't have an account?";
+            } else {
+                title.innerText = "Create Account";
+                sub.innerText = "Start sharing your AI prompts with the world";
+                btn.innerText = "Sign Up";
+                toggle.innerText = "Already have an account?";
+            }
+        }
+
+        // --- 4. AUTHENTICATION ---
+        async function checkSession() {
+            if (isMockMode) return;
+            const { data: { session } } = await _supabase.auth.getSession();
+            updateAuthUI(session?.user || null);
+        }
+
+        function updateAuthUI(user) {
+            currentUser = user;
+            const loggedOutDiv = document.getElementById('navLoggedOut');
+            const loggedInDiv = document.getElementById('navLoggedIn');
+            const emailDisplay = document.getElementById('userEmailDisplay');
+
+            if (user) {
+                loggedOutDiv.classList.add('hidden');
+                loggedInDiv.classList.remove('hidden');
+                emailDisplay.innerText = user.email;
+            } else {
+                loggedOutDiv.classList.remove('hidden');
+                loggedInDiv.classList.add('hidden');
+            }
+        }
+
+        document.getElementById('authForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('authEmail').value;
+            const password = document.getElementById('authPassword').value;
+            const btn = document.getElementById('authBtn');
+
+            btn.innerText = "Processing...";
+            btn.disabled = true;
+
+            try {
+                let result;
+                if (isLoginMode) {
+                    result = await _supabase.auth.signInWithPassword({ email, password });
+                } else {
+                    result = await _supabase.auth.signUp({ email, password });
+                }
+
+                if (result.error) throw result.error;
+
+                showToast(isLoginMode ? "Login Successful!" : "Account Created!", "success");
+                updateAuthUI(result.data.user);
+                navigate('home');
+                
+            } catch (err) {
+                showToast(err.message, "error");
+            } finally {
+                btn.innerText = isLoginMode ? "Sign In" : "Sign Up";
+                btn.disabled = false;
+            }
+        });
+
+        async function handleLogout() {
+            if (isMockMode) {
+                currentUser = null;
+                updateAuthUI(null);
+                navigate('home');
+                return;
+            }
+            await _supabase.auth.signOut();
+            currentUser = null;
+            updateAuthUI(null);
+            navigate('home');
+            showToast("Logged out successfully", "info");
+        }
+
+        // --- 5. DATABASE OPERATIONS ---
+        
+        // Fetch all prompts (with Mock Fallback)
+        async function fetchPrompts(category = 'All') {
+            const grid = document.getElementById('promptGrid');
+            
+            // Highlight active filter
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                if (btn.dataset.cat === category) {
+                    btn.classList.add('bg-blue-600', 'text-white', 'border-blue-600');
+                    btn.classList.remove('hover:bg-white/5', 'text-gray-400');
+                } else {
+                    btn.classList.remove('bg-blue-600', 'text-white', 'border-blue-600');
+                    btn.classList.add('hover:bg-white/5', 'text-gray-400');
+                }
+            });
+
+            let data = [];
+
+            if (isMockMode) {
+                // Simulate network delay
+                await new Promise(r => setTimeout(r, 500)); 
+                data = MOCK_PROMPTS;
+            } else {
+                let query = _supabase.from('prompts').select('*').order('created_at', { ascending: false });
+                if (category !== 'All') query = query.eq('category', category);
+                
+                const { data: dbData, error } = await query;
+                if (error) {
+                    console.error("DB Error, falling back to mock:", error);
+                    data = MOCK_PROMPTS; // Fallback gracefully
+                } else {
+                    data = dbData;
+                }
+            }
+
+            // Render Grid
+            if (data.length === 0) {
+                grid.innerHTML = `<div class="col-span-full text-center text-gray-500 py-10">No prompts found for ${category}.</div>`;
+                return;
+            }
+
+            grid.innerHTML = data.map(p => `
+                <div class="glass p-6 rounded-2xl prompt-card flex flex-col justify-between h-full border border-white/5">
+                    <div>
+                        <div class="flex justify-between items-start mb-4">
+                            <span class="text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider ${
+                                p.category === 'ChatGPT' ? 'bg-emerald-900/50 text-emerald-400' :
+                                p.category === 'Midjourney' ? 'bg-purple-900/50 text-purple-400' :
+                                'bg-orange-900/50 text-orange-400'
+                            }">${p.category}</span>
+                            <span class="text-xs text-gray-500">${new Date(p.created_at).toLocaleDateString()}</span>
+                        </div>
+                        <h4 class="text-lg font-bold text-white mb-2 leading-tight">${p.title}</h4>
+                        <p class="text-gray-400 text-sm mb-4 line-clamp-3 bg-black/20 p-3 rounded-lg font-mono">${p.prompt_text}</p>
+                    </div>
+                    <button onclick="copyToClipboard('${escapeHtml(p.prompt_text)}')" class="w-full py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-sm font-medium text-white transition flex items-center justify-center gap-2 group">
+                        <svg class="w-4 h-4 text-gray-400 group-hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                        Copy Prompt
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        // Fetch User's specific prompts
+        async function fetchUserPrompts() {
+            const list = document.getElementById('userPrompts');
+            const countLabel = document.getElementById('promptCount');
+            
+            if (isMockMode) {
+                 // Just show static mock data for user in demo mode
+                 const myPrompts = MOCK_PROMPTS.filter(p => p.user_id === 'mock'); 
+                 renderUserList(myPrompts);
+                 return;
+            }
+
+            const { data, error } = await _supabase
+                .from('prompts')
+                .select('*')
+                .eq('user_id', currentUser.id)
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                list.innerHTML = `<p class="text-red-400">Error loading profile: ${error.message}</p>`;
+            } else {
+                renderUserList(data);
+            }
+
+            function renderUserList(prompts) {
+                countLabel.innerText = `${prompts.length} prompts`;
+                if (prompts.length === 0) {
+                    list.innerHTML = `<div class="text-center text-gray-500 py-10"><p>You haven't uploaded any prompts yet.</p></div>`;
+                    return;
+                }
+                list.innerHTML = prompts.map(p => `
+                    <div class="bg-slate-900/50 p-4 rounded-lg border border-white/5 flex justify-between items-start">
+                        <div>
+                            <span class="text-xs font-bold text-blue-400 uppercase">${p.category}</span>
+                            <h4 class="font-bold text-white">${p.title}</h4>
+                        </div>
+                        <span class="text-xs text-gray-500">${new Date(p.created_at).toLocaleDateString()}</span>
+                    </div>
+                `).join('');
+            }
+        }
+
+        document.getElementById('promptForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!currentUser) return;
+
+            const title = document.getElementById('pTitle').value;
+            const text = document.getElementById('pText').value;
+            const cat = document.getElementById('pCategory').value;
+
+            if (isMockMode) {
+                MOCK_PROMPTS.unshift({
+                    id: Date.now(),
+                    title, 
+                    prompt_text: text, 
+                    category: cat, 
+                    created_at: new Date().toISOString(),
+                    user_id: 'mock'
+                });
+                showToast("Prompt Published (Demo Mode)", "success");
+                document.getElementById('promptForm').reset();
+                navigate('home');
+                return;
+            }
+
+            const { error } = await _supabase.from('prompts').insert([
+                { title: title, prompt_text: text, category: cat, user_id: currentUser.id }
+            ]);
+
+            if (error) {
+                showToast(error.message, "error");
+            } else {
+                showToast("Prompt Published Successfully!", "success");
+                document.getElementById('promptForm').reset();
+                navigate('home');
+            }
+        });
+
+        // --- 6. UTILITIES ---
+        function filterPrompts(cat) {
+            fetchPrompts(cat);
+        }
+
+        function escapeHtml(text) {
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        async function copyToClipboard(text) {
+            try {
+                await navigator.clipboard.writeText(text);
+                showToast("Copied to clipboard!", "success");
+            } catch (err) {
+                showToast("Failed to copy", "error");
+            }
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            
+            let bgClass = 'bg-slate-800 border-slate-700 text-white';
+            if (type === 'success') bgClass = 'bg-green-900/90 border-green-700 text-green-100';
+            if (type === 'error') bgClass = 'bg-red-900/90 border-red-700 text-red-100';
+
+            toast.className = `p-4 rounded-lg shadow-xl border backdrop-blur-md toast-enter flex items-center gap-3 min-w-[300px] ${bgClass}`;
+            
+            let icon = 'ℹ️';
+            if (type === 'success') icon = '✅';
+            if (type === 'error') icon = '⚠️';
+
+            toast.innerHTML = `<span class="text-lg">${icon}</span><span class="font-medium text-sm">${message}</span>`;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100%)';
+                toast.style.transition = 'all 0.3s';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
